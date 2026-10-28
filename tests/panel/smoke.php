@@ -55,7 +55,7 @@ function expectOk(TestResponse $response, string $url): void
         throw new RuntimeException('HTTP '.$response->getStatusCode().' at '.$url.($response->exception ? ': '.$response->exception->getMessage() : ''));
     }
 }
-function expect(bool $ok, string $why): void
+function must(bool $ok, string $why): void
 {
     if (! $ok) {
         throw new RuntimeException($why);
@@ -106,10 +106,10 @@ step('settings save, Test finds the zone and the token is stored encrypted', fun
         ->call('save')
         ->assertHasNoErrors();
     Settings::flush();
-    expect(Subdomains::ready(), 'not ready after saving: missing '.implode(', ', Settings::missing()));
-    expect(Settings::domain() === 'example.com', 'the domain is not saved in lowercase');
+    must(Subdomains::ready(), 'not ready after saving: missing '.implode(', ', Settings::missing()));
+    must(Settings::domain() === 'example.com', 'the domain is not saved in lowercase');
     $stored = (string) DB::table(Settings::TABLE)->where('key', 'token')->value('value');
-    expect($stored !== '' && ! str_contains($stored, 'smoke-token'), 'the token is stored in plain text');
+    must($stored !== '' && ! str_contains($stored, 'smoke-token'), 'the token is stored in plain text');
 });
 
 $server = Server::query()->with(['allocation', 'egg'])->first() ?? Server::factory()->create(['owner_id' => $admin->id]);
@@ -122,17 +122,17 @@ step('a subdomain reaches Cloudflare and shows as connected', function () use ($
     Filament::setTenant($server);
     $calls = [];
     Livewire::actingAs($admin)->test(ServerSubdomain::class)->set('data.name', 'smoke-oak')->call('save')->assertHasNoErrors();
-    expect(in_array('POST /zones/'.str_repeat('a', 32).'/dns_records', $calls, true), 'no record created: '.json_encode($calls));
-    expect(Subdomains::state($server)['status'] === Subdomain::ACTIVE, 'not active: '.json_encode(Subdomains::state($server)));
-    expect(str_starts_with((string) Subdomains::address($server->fresh(['allocation', 'egg'])), 'smoke-oak.example.com'), 'no address');
-    expect(Subdomains::check('smoke-oak') !== null, 'the name is not taken for other servers');
+    must(in_array('POST /zones/'.str_repeat('a', 32).'/dns_records', $calls, true), 'no record created: '.json_encode($calls));
+    must(Subdomains::state($server)['status'] === Subdomain::ACTIVE, 'not active: '.json_encode(Subdomains::state($server)));
+    must(str_starts_with((string) Subdomains::address($server->fresh(['allocation', 'egg'])), 'smoke-oak.example.com'), 'no address');
+    must(Subdomains::check('smoke-oak') !== null, 'the name is not taken for other servers');
 });
 step('the sync command runs', function () {
-    expect(Artisan::call('simplify-subdomains:sync') === 0, Artisan::output());
+    must(Artisan::call('simplify-subdomains:sync') === 0, Artisan::output());
 });
 step('deleting a server removes its records', function () use ($server, &$records) {
     Subdomains::forget($server->uuid);
-    expect($records === [] && Subdomain::of($server->uuid) === null, 'records left: '.json_encode($records));
+    must($records === [] && Subdomain::of($server->uuid) === null, 'records left: '.json_encode($records));
 });
 step('settings and subdomains from PelicanSimplify are taken over', function () {
     DB::table('simplify_subdomains')->delete();
@@ -142,8 +142,8 @@ step('settings and subdomains from PelicanSimplify are taken over', function () 
     $disk->put('simplify/subdomains/dddddddd-0000-0000-0000-000000000004.json', json_encode(['name' => 'oak', 'status' => 'active', 'port' => 25566]));
     (require dirname(__DIR__, 2).'/database/migrations/2026_10_28_000002_import_pelicansimplify_subdomains.php')->up();
     Settings::flush();
-    expect(Settings::domain() === 'old.example' && Settings::credentials()[0] === 'old-token', 'settings not taken over');
-    expect(Subdomain::of('dddddddd-0000-0000-0000-000000000004')?->name === 'oak', 'subdomain not taken over');
+    must(Settings::domain() === 'old.example' && Settings::credentials()[0] === 'old-token', 'settings not taken over');
+    must(Subdomain::of('dddddddd-0000-0000-0000-000000000004')?->name === 'oak', 'subdomain not taken over');
     $disk->deleteDirectory('simplify');
 });
 exit($failed ? 1 : 0);

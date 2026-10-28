@@ -1,0 +1,78 @@
+name: Checks
+on:
+  push:
+    branches: [main]
+  pull_request: {}
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+      - run: bash tests/run.sh
+  pint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: pint
+      - run: pint --test
+  # Installs the plugin in a real Pelican panel and opens its pages, so an error that only shows when the panel loads the code blocks the merge.
+  panel-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - pelican: '1.0.0-beta38'
+            php: '8.3'
+          - pelican: '1.0.0-rc.2'
+            php: '8.4'
+    name: panel-smoke (Pelican ${{ matrix.pelican }})
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: plugin
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: bcmath, gd, intl, mbstring, pdo_sqlite, sqlite3, zip
+          tools: composer
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install -g yarn
+      - name: Install Pelican ${{ matrix.pelican }}
+        run: |
+          git clone --quiet --depth 1 --branch "v${{ matrix.pelican }}" https://github.com/pelican-dev/panel.git panel
+          cd panel
+          composer install --no-interaction --no-progress --prefer-dist
+          sed -i "s/'version' => 'canary'/'version' => '${{ matrix.pelican }}'/" config/app.php
+          cp .env.example .env
+          sed -i 's/^APP_INSTALLED=.*/APP_INSTALLED=true/; s/^APP_DEBUG=.*/APP_DEBUG=true/; s#^APP_URL=.*#APP_URL=http://localhost#' .env
+          printf 'DB_CONNECTION=sqlite\nQUEUE_CONNECTION=database\nCACHE_STORE=file\nSESSION_DRIVER=file\nMAIL_MAILER=log\n' >> .env
+          touch database/database.sqlite
+          php artisan key:generate --force
+          php artisan migrate --force
+          yarn install --silent
+      - name: Install Simplify Subdomains
+        run: |
+          mkdir -p panel/plugins/simplify-subdomains
+          tar -C plugin --exclude=.git --exclude=dist -cf - . | tar -C panel/plugins/simplify-subdomains -xf -
+          cd panel
+          php artisan p:plugin:install simplify-subdomains
+          php artisan p:plugin:list | tee plugins.txt
+          grep -E 'Simplify .*\| enabled' plugins.txt || { echo 'Simplify Subdomains did not install'; exit 1; }
+      - name: Open the pages
+        working-directory: panel
+        run: |
+          php plugins/simplify-subdomains/tests/panel/smoke.php | tee smoke.txt
+          grep -q '^All steps passed$' smoke.txt
+      - name: Laravel log
+        if: failure()
+        run: grep -h -E '^\[[0-9-]+ [0-9:]+\]' panel/storage/logs/*.log | cut -c1-600 | tail -n 12 || true

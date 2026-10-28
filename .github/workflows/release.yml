@@ -1,0 +1,24 @@
+name: Release
+# A new version in plugin.json on main (not a -dev version) becomes GitHub Release v<version> with its zip, for upload to the Pelican Hub.
+# The panel never reads this release: updates come from the Hub only.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(python3 -c "import json; print(json.load(open('plugin.json'))['version'])")
+          case "$version" in *-dev*) echo "Version $version is still in development."; exit 0;; esac
+          if gh release view "v$version" >/dev/null 2>&1; then echo "Release v$version already exists."; exit 0; fi
+          zip=$(python3 scripts/build-package.py)
+          awk -v head="## $version" 'index($0, head) == 1 {on = 1; next} on && /^## / {exit} on' CHANGELOG.md > notes.md
+          gh release create "v$version" "$zip" --target "$GITHUB_SHA" --title "Simplify Subdomains $version" --notes-file notes.md --latest

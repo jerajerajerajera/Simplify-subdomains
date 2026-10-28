@@ -30,6 +30,8 @@ final class AutomaticSubdomains extends Page implements HasSchemas
 
     protected static string|\BackedEnum|null $navigationIcon = 'tabler-world';
 
+    protected static ?int $navigationSort = 90;
+
     protected static ?string $slug = 'simplify-subdomains';
 
     protected string $view = 'simplify-subdomains::form-page';
@@ -47,9 +49,10 @@ final class AutomaticSubdomains extends Page implements HasSchemas
         return __('simplify-subdomains::subdomains.title');
     }
 
+    /** In the Simplify group of Pelican's menu, with the other Simplify add-ons (Simplify's ADDONS.md, "Admin menu"). */
     public static function getNavigationGroup(): ?string
     {
-        return trans('admin/dashboard.advanced');
+        return 'Simplify';
     }
 
     public function getTitle(): string

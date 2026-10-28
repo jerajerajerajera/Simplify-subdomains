@@ -16,7 +16,7 @@ on the server's tile and the add-on appears in Simplify's add-on list.
 
 1. Install the plugin from the [Pelican Hub](https://hub.pelican.dev). Updates come from the Hub only.
 2. In Cloudflare, create an API token with only **Zone → DNS → Edit** for your domain.
-3. In the admin area, open **Advanced → Automatic subdomains**. Fill in the domain, the game address (an existing
+3. In the admin area, open **Simplify → Automatic subdomains**. Fill in the domain, the game address (an existing
    DNS-only record that points to your public IP) and the forwarded port range. Paste the token and press **Test**,
    then save.
 4. Server owners now find **Subdomain** in their server's menu. Only servers with a port in the forwarded range get

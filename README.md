@@ -36,6 +36,9 @@ The settings and server addresses of the subdomains built into PelicanSimplify 0
 plugin is installed, so nothing has to be set up again. The old files are left as they are. A token that was only in
 `.env` (`CLOUDFLARE_API_TOKEN`) has to be pasted once on the settings page.
 
+Turn off the subdomains in PelicanSimplify (or remove PelicanSimplify) once this plugin is set up, so only one
+plugin looks after the records.
+
 ## For other plugins
 
 `Simplify\Subdomains\Subdomains` has a few public static methods, for example for a plugin that creates servers:

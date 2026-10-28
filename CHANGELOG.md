@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.1
+
+- The Simplify dashboard reads the subdomains of all server tiles in one go instead of once per server.
+
 ## 1.0.0
 
 - First version as its own plugin: automatic subdomains in Cloudflare, settings in Advanced → Automatic subdomains

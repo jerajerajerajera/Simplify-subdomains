@@ -3,6 +3,10 @@
 // Loads Simplify Subdomains inside a real Pelican panel, opens its pages and runs a subdomain through a fake
 // Cloudflare. Run from the panel folder after `php artisan p:plugin:install simplify-subdomains`:
 // php plugins/simplify-subdomains/tests/panel/smoke.php
+use App\Models\Allocation;
+use App\Models\Egg;
+use App\Models\Node;
+use App\Models\Role;
 use App\Models\Server;
 use App\Models\User;
 use Filament\Facades\Filament;
@@ -25,6 +29,12 @@ define('LARAVEL_START', microtime(true));
 require getcwd().'/vendor/autoload.php';
 $app = require getcwd().'/bootstrap/app.php';
 $app->make(Kernel::class)->bootstrap();
+
+// Laravel's console handler would print an uncaught error and still exit 0, which CI reads as a pass.
+set_exception_handler(function (Throwable $e) {
+    echo 'FAIL uncaught '.get_class($e).': '.substr($e->getMessage(), 0, 400).' ('.basename($e->getFile()).':'.$e->getLine().")\n";
+    exit(1);
+});
 
 $failed = false;
 function step(string $what, callable $run): void
@@ -86,8 +96,10 @@ Subdomains::$transport = function (string $method, string $path, ?array $body) u
     return ['success' => true];
 };
 
+// Pelican has no root_admin column: root admin is a role.
 $admin = User::where('email', 'smoke-subdomains@example.com')->first()
-    ?? User::factory()->create(['email' => 'smoke-subdomains@example.com', 'root_admin' => true]);
+    ?? User::factory()->create(['email' => 'smoke-subdomains@example.com']);
+$admin->syncRoles(Role::getRootAdmin());
 
 step('the settings page renders', function () use ($admin) {
     $url = AutomaticSubdomains::getUrl(panel: 'admin');
@@ -112,7 +124,23 @@ step('settings save, Test finds the zone and the token is stored encrypted', fun
     must($stored !== '' && ! str_contains($stored, 'smoke-token'), 'the token is stored in plain text');
 });
 
-$server = Server::query()->with(['allocation', 'egg'])->first() ?? Server::factory()->create(['owner_id' => $admin->id]);
+$server = null;
+step('a test server is made', function () use ($admin, &$server) {
+    $node = Node::factory()->create();
+    $egg = Egg::query()->first() ?? Egg::factory()->create();
+    $allocation = Allocation::factory()->create(['node_id' => $node->id, 'port' => 25570]);
+    $server = Server::factory()->create([
+        'owner_id' => $admin->id,
+        'node_id' => $node->id,
+        'egg_id' => $egg->id,
+        'allocation_id' => $allocation->id,
+    ]);
+    $allocation->update(['server_id' => $server->id]);
+    $server = $server->fresh(['allocation', 'egg']);
+});
+if ($server === null) {
+    exit(1);
+}
 step('the server page renders', function () use ($admin, $server) {
     $url = ServerSubdomain::getUrl(panel: 'server', tenant: $server);
     expectOk(visit($admin, $url), $url);
@@ -146,4 +174,5 @@ step('settings and subdomains from PelicanSimplify are taken over', function () 
     must(Subdomain::of('dddddddd-0000-0000-0000-000000000004')?->name === 'oak', 'subdomain not taken over');
     $disk->deleteDirectory('simplify');
 });
+echo $failed ? "Some steps failed\n" : "All steps passed\n";
 exit($failed ? 1 : 0);

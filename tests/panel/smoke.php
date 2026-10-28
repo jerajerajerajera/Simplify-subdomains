@@ -101,6 +101,30 @@ $admin = User::where('email', 'smoke-subdomains@example.com')->first()
     ?? User::factory()->create(['email' => 'smoke-subdomains@example.com']);
 $admin->syncRoles(Role::getRootAdmin());
 
+$server = null;
+step('a test server is made', function () use ($admin, &$server) {
+    $node = Node::factory()->create();
+    $egg = Egg::query()->first() ?? Egg::factory()->create();
+    $allocation = Allocation::factory()->create(['node_id' => $node->id, 'port' => 25570]);
+    $server = Server::factory()->create([
+        'owner_id' => $admin->id,
+        'node_id' => $node->id,
+        'egg_id' => $egg->id,
+        'allocation_id' => $allocation->id,
+    ]);
+    $allocation->update(['server_id' => $server->id]);
+    $server = $server->fresh(['allocation', 'egg']);
+});
+if ($server === null) {
+    exit(1);
+}
+// Each Filament panel adds its render hooks for the whole process when it boots, so a page of another panel can
+// then fail on a plugin it does not have. Open the server page before anything boots the admin panel.
+step('the server page renders', function () use ($admin, $server) {
+    Settings::save(['domain' => 'example.com', 'target' => 'play.example.com', 'port_min' => 1, 'port_max' => 65535, 'zone_id' => str_repeat('a', 32), 'token' => 'first-token']);
+    $url = ServerSubdomain::getUrl(panel: 'server', tenant: $server);
+    expectOk(visit($admin, $url), $url);
+});
 step('the settings page renders', function () use ($admin) {
     $url = AutomaticSubdomains::getUrl(panel: 'admin');
     expectOk(visit($admin, $url), $url);
@@ -124,27 +148,6 @@ step('settings save, Test finds the zone and the token is stored encrypted', fun
     must($stored !== '' && ! str_contains($stored, 'smoke-token'), 'the token is stored in plain text');
 });
 
-$server = null;
-step('a test server is made', function () use ($admin, &$server) {
-    $node = Node::factory()->create();
-    $egg = Egg::query()->first() ?? Egg::factory()->create();
-    $allocation = Allocation::factory()->create(['node_id' => $node->id, 'port' => 25570]);
-    $server = Server::factory()->create([
-        'owner_id' => $admin->id,
-        'node_id' => $node->id,
-        'egg_id' => $egg->id,
-        'allocation_id' => $allocation->id,
-    ]);
-    $allocation->update(['server_id' => $server->id]);
-    $server = $server->fresh(['allocation', 'egg']);
-});
-if ($server === null) {
-    exit(1);
-}
-step('the server page renders', function () use ($admin, $server) {
-    $url = ServerSubdomain::getUrl(panel: 'server', tenant: $server);
-    expectOk(visit($admin, $url), $url);
-});
 step('a subdomain reaches Cloudflare and shows as connected', function () use ($admin, $server, &$calls) {
     Filament::setCurrentPanel(Filament::getPanel('server'));
     Filament::setTenant($server);

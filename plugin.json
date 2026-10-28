@@ -1,0 +1,17 @@
+{
+    "id": "simplify-subdomains",
+    "name": "Simplify Subdomains",
+    "author": "jera",
+    "version": "1.0.0-dev",
+    "description": "Gives each server its own address, such as oak.example.com. The DNS records are made in Cloudflare and removed with the server.",
+    "category": "plugin",
+    "namespace": "Simplify\\Subdomains",
+    "class": "SimplifySubdomainsPlugin",
+    "panels": [
+        "admin",
+        "server"
+    ],
+    "panel_version": "^1.0.0-beta38",
+    "api_version": 1,
+    "update_url": "https://hub.pelican.dev/plugins/simplify-subdomains/update.json"
+}

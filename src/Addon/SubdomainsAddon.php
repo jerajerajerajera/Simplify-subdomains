@@ -7,6 +7,7 @@ namespace Simplify\Subdomains\Addon;
 use App\Models\Server;
 use Simplify\Core\Addons\Addon;
 use Simplify\Subdomains\Filament\Admin\Pages\AutomaticSubdomains;
+use Simplify\Subdomains\Models\Subdomain;
 use Simplify\Subdomains\SimplifySubdomainsPlugin;
 use Simplify\Subdomains\Subdomains;
 
@@ -38,9 +39,16 @@ final class SubdomainsAddon extends Addon
         return user()?->isRootAdmin() ? AutomaticSubdomains::getUrl(panel: 'admin') : null;
     }
 
+    /** @var array<string, ?string>|null active subdomain names by server uuid: one query for all tiles of a page */
+    private ?array $active = null;
+
     public function tileBadges(Server $server): array
     {
-        $address = Subdomains::address($server);
+        if (! Subdomains::ready()) {
+            return [];
+        }
+        $this->active ??= Subdomain::query()->where('status', Subdomain::ACTIVE)->pluck('name', 'server_uuid')->all();
+        $address = Subdomains::join($server, $this->active[$server->uuid] ?? null);
 
         return $address === null ? [] : [$address];
     }

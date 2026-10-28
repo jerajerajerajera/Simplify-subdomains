@@ -75,10 +75,17 @@ final class Subdomains
             return null;
         }
         $row = Subdomain::of($server->uuid);
-        if ($row?->status !== Subdomain::ACTIVE || $row->name === null) {
+
+        return $row?->status === Subdomain::ACTIVE ? self::join($server, $row->name) : null;
+    }
+
+    /** The join address for a server's active subdomain name, null without a name. */
+    public static function join(Server $server, ?string $name): ?string
+    {
+        if ($name === null || $name === '') {
             return null;
         }
-        $host = $row->name.'.'.Settings::domain();
+        $host = $name.'.'.Settings::domain();
 
         return self::minecraft($server) ? $host : $host.':'.(int) $server->allocation?->port;
     }

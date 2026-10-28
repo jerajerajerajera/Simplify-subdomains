@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Testing\TestResponse;
 use Livewire\Livewire;
+use Simplify\Subdomains\Addon\SubdomainsAddon;
 use Simplify\Subdomains\Filament\Admin\Pages\AutomaticSubdomains;
 use Simplify\Subdomains\Filament\Server\Pages\ServerSubdomain;
 use Simplify\Subdomains\Models\Subdomain;
@@ -157,6 +158,20 @@ step('a subdomain reaches Cloudflare and shows as connected', function () use ($
     must(Subdomains::state($server)['status'] === Subdomain::ACTIVE, 'not active: '.json_encode(Subdomains::state($server)));
     must(str_starts_with((string) Subdomains::address($server->fresh(['allocation', 'egg'])), 'smoke-oak.example.com'), 'no address');
     must(Subdomains::check('smoke-oak') !== null, 'the name is not taken for other servers');
+});
+step('Simplify tiles show the address, with one query for all tiles', function () use ($server) {
+    if (! class_exists('Simplify\\Core\\Addons\\Addon')) {
+        require __DIR__.'/stubs/Addon.php';
+    }
+    $addon = new SubdomainsAddon;
+    $loaded = $server->fresh(['allocation', 'egg']);
+    must(str_starts_with((string) ($addon->tileBadges($loaded)[0] ?? ''), 'smoke-oak.example.com'), 'no address on the tile');
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    $addon->tileBadges($loaded);
+    $addon->tileBadges($loaded);
+    must(DB::getQueryLog() === [], 'the next tiles query again: '.json_encode(DB::getQueryLog()));
+    DB::disableQueryLog();
 });
 step('the sync command runs', function () {
     must(Artisan::call('simplify-subdomains:sync') === 0, Artisan::output());

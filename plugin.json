@@ -2,7 +2,7 @@
     "id": "simplify-subdomains",
     "name": "Simplify Subdomains",
     "author": "jera",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "Gives each server its own address, such as oak.example.com. The DNS records are made in Cloudflare and removed with the server.",
     "category": "plugin",
     "namespace": "Simplify\\Subdomains",
